@@ -2,5 +2,6 @@ name: Packit SRPM build
 description: Action that provides Packit SRPM build
 runs:
   using: "docker"
-  image: 'Containerfile'
+  # Cannot use Containerfile
+  image: 'Dockerfile'
 
