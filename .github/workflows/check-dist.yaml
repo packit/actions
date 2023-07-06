@@ -1,0 +1,48 @@
+name: Check dist/
+
+on:
+  workflow_call:
+
+jobs:
+  check-dist:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          # Make sure it can commit on PRs
+          ref: ${{ github.event.pull_request.head.ref }}
+      - uses: actions/setup-node@v3
+        with:
+          cache: npm
+          node-version: 18
+      - run: npm ci
+
+      - name: Rebuild the dist/ directory
+        run: |
+          npm run build
+          npm run package
+
+      - name: Compare the expected and actual dist/ directories
+        run: |
+          if [[ ! -z $(git status --porcelain dist | grep -E "^.\S") ]]; then
+            echo "Detected uncommitted changes after build.  See status below:"
+            echo "Please run: npm build && npm package && git add dist/"
+            echo "Currently cannot automatically push a git commit because it will not re-trigger the CI"
+            git status dist
+            exit 1
+          fi
+        id: diff
+
+      - name: Push dist/ changes
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add dist
+          git commit -m "[CI] Compile dist"
+          git push
+        # Run if the last step failed and we are in a PR
+        # TODO: Disabled because this does not re-trigger action. Using PAT or maybe GH application may work though
+        # https://github.com/orgs/community/discussions/25702
+        if: ${{ false && failure() && steps.diff.conclusion == 'failure' && github.event_name == 'pull_request' }}
