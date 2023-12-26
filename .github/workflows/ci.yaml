@@ -1,0 +1,30 @@
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_call:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # TODO: Trigger with change-detection
+  pre-commit:
+    uses: ./.github/workflows/pre-commit.yaml
+  test:
+    needs: [ pre-commit ]
+    uses: ./.github/workflows/test.yaml
+  check-dist:
+    needs: [ pre-commit ]
+    uses: ./.github/workflows/check-dist.yaml
+    permissions:
+      contents: write
+  codeql:
+    needs: [test, check-dist]
+    uses: ./.github/workflows/codeql-analysis.yaml
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
