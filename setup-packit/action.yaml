@@ -1,0 +1,10 @@
+name: Setup packit
+description: Action that setups packit cli and environment
+inputs:
+  packit-version:
+    description: >
+      packit version to download via pip. Default is the latest version on PyPI
+    required: false
+runs:
+  using: node20
+  main: ../dist/setup-packit/index.js
