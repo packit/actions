@@ -1,4 +1,4 @@
-import { exec, getExecOutput } from "@actions/exec"
+import { exec, ExecOptions, getExecOutput } from "@actions/exec"
 import { join, resolve } from "node:path"
 import { access, mkdir, mkdtemp, writeFile } from "node:fs/promises"
 import { homedir, tmpdir } from "node:os"
@@ -6,6 +6,14 @@ import assert from "node:assert"
 import { env } from "node:process"
 import { exportVariable } from "@actions/core"
 import dedent from "dedent"
+
+interface BuildCoprInterface {
+	owner?: string
+	project?: string
+	pkg?: string
+	path?: string
+	debug?: boolean
+}
 
 class Packit {
 	_version?: string
@@ -67,6 +75,19 @@ class Packit {
 			assert(this._version !== undefined)
 			return this._version
 		})()
+	}
+
+	public async build_copr(opts: BuildCoprInterface) {
+		let args = ["--wait"]
+		let base_args = []
+		let options: ExecOptions = {}
+		if (opts.owner) args.push("--owner", opts.owner)
+		if (opts.project) args.push("--project", opts.project)
+		if (opts.pkg) args.push("--package", opts.pkg)
+		if (opts.path) options.cwd = opts.path
+		if (opts.debug) base_args.push("-dd")
+
+		return exec("packit", [...base_args, "build", "in-copr", ...args], options)
 	}
 }
 

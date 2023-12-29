@@ -28,9 +28,17 @@ jobs:
     secrets:
       PACKIT_KEYTAB: ${{ secrets.PACKIT_KEYTAB }}
 
+  build-copr:
+    needs: [setup-packit]
+    uses: ./.github/workflows/step_test-build-copr.yaml
+    with:
+      fas-user: ${{ vars.FAS_USER }}
+    secrets:
+      PACKIT_KEYTAB: ${{ secrets.PACKIT_KEYTAB }}
+
   pass:
     name: ✅ Pass
-    needs: [pre-commit, setup-packit]
+    needs: [pre-commit, setup-packit, build-copr]
     runs-on: ubuntu-latest
     steps:
       - name: Check all CI jobs

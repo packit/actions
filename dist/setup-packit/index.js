@@ -9663,6 +9663,24 @@ class Packit {
             return this._version;
         }))();
     }
+    build_copr(opts) {
+        return __awaiter(this, void 0, void 0, function* () {
+            let args = ["--wait"];
+            let base_args = [];
+            let options = {};
+            if (opts.owner)
+                args.push("--owner", opts.owner);
+            if (opts.project)
+                args.push("--project", opts.project);
+            if (opts.pkg)
+                args.push("--package", opts.pkg);
+            if (opts.path)
+                options.cwd = opts.path;
+            if (opts.debug)
+                base_args.push("-dd");
+            return (0, exec_1.exec)("packit", [...base_args, "build", "in-copr", ...args], options);
+        });
+    }
 }
 exports.Packit = Packit;
 
