@@ -1,5 +1,14 @@
 on:
   workflow_call:
+    inputs:
+      fas-user:
+        description: Fedora user to authenticate as
+        type: string
+        required: true
+    secrets:
+      PACKIT_KEYTAB:
+        description: Fedora user's keytab
+        required: true
 
 permissions: {}
 
@@ -28,3 +37,6 @@ jobs:
           python-version: ${{ matrix.python }}
         if: matrix.python
       - uses: ./setup-packit
+        with:
+          fas-user: ${{ inputs.fas-user }}
+          keytab: ${{ secrets.PACKIT_KEYTAB }}

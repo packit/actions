@@ -39,7 +39,7 @@ class Prepare_os {
 						"openssl-devel",
 						"krb5-devel",
 					)
-				dependencies.push("rpm-build")
+				dependencies.push("rpm-build", "krb5-workstation")
 				break
 			case this.os.distros.UBUNTU:
 			case this.os.distros.DEBIAN:
@@ -52,6 +52,7 @@ class Prepare_os {
 						"libgnutls28-dev",
 						"libkrb5-dev",
 					)
+				dependencies.push("krb5-user", "krb5-k5tls", "ca-certificates")
 				break
 			default:
 				info(

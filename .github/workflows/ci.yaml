@@ -23,6 +23,10 @@ jobs:
   setup-packit:
     needs: [pre-commit]
     uses: ./.github/workflows/step_test-setup-packit.yaml
+    with:
+      fas-user: ${{ vars.FAS_USER }}
+    secrets:
+      PACKIT_KEYTAB: ${{ secrets.PACKIT_KEYTAB }}
 
   pass:
     name: ✅ Pass

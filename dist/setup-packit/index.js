@@ -9523,6 +9523,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const core_1 = __nccwpck_require__(2186);
+const node_process_1 = __nccwpck_require__(7742);
+const node_assert_1 = __importDefault(__nccwpck_require__(8061));
 const dedent_1 = __importDefault(__nccwpck_require__(5281));
 const prepare_os_1 = __nccwpck_require__(8546);
 const packit_1 = __nccwpck_require__(9609);
@@ -9537,9 +9539,26 @@ function run() {
         const packit_version = (0, core_1.getInput)("packit-version");
         yield packit.install(packit_version);
         (0, core_1.endGroup)();
+        // Configure authentication
+        (0, core_1.startGroup)("Authenticating packit");
+        const fas_user = (0, core_1.getInput)("fas-user");
+        let keytab = (0, core_1.getInput)("keytab");
+        if (!keytab) {
+            if (!("PACKIT_KEYTAB" in node_process_1.env))
+                (0, core_1.error)((0, dedent_1.default) `
+                No keytab provided. Provide one either as an input or PAKIT_KEYTAB environment.
+                See this comment for creating the keytab: https://pagure.io/fedora-infrastructure/issue/9544#comment-706949
+                Use \`base64\` to encode the keytab and save it as a secret.
+                `);
+            (0, node_assert_1.default)(node_process_1.env.PACKIT_KEYTAB !== undefined);
+            keytab = node_process_1.env.PACKIT_KEYTAB;
+        }
+        yield packit.authenticate(fas_user, keytab);
+        (0, core_1.endGroup)();
         // Display information
         (0, core_1.startGroup)("packit info");
         (0, core_1.info)((0, dedent_1.default) `
+        fas-user: ${fas_user}
 		packit-version: ${yield packit.version}
 		`);
         (0, core_1.endGroup)();
@@ -9570,12 +9589,53 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.Packit = void 0;
 const exec_1 = __nccwpck_require__(1514);
+const node_path_1 = __nccwpck_require__(9411);
+const promises_1 = __nccwpck_require__(3977);
+const node_os_1 = __nccwpck_require__(612);
 const node_assert_1 = __importDefault(__nccwpck_require__(8061));
+const node_process_1 = __nccwpck_require__(7742);
+const core_1 = __nccwpck_require__(2186);
+const dedent_1 = __importDefault(__nccwpck_require__(5281));
 class Packit {
     install(version) {
         return __awaiter(this, void 0, void 0, function* () {
             // Do actual packit install
             yield (0, exec_1.exec)(`python3 -m pip install packitos${version}`);
+        });
+    }
+    authenticate(fas_user, keytab) {
+        return __awaiter(this, void 0, void 0, function* () {
+            // Write basic authentication files for packit
+            const config_dir = (0, node_path_1.join)((0, node_os_1.homedir)(), ".config");
+            (0, promises_1.access)(config_dir)
+                .catch(() => {
+                (0, promises_1.mkdir)(config_dir, { recursive: true });
+            })
+                .then(() => {
+                (0, promises_1.writeFile)((0, node_path_1.join)((0, node_os_1.homedir)(), ".config", "packit.yaml"), (0, dedent_1.default) `
+                    fas_user: ${fas_user}
+                    `);
+                (0, promises_1.writeFile)((0, node_path_1.join)((0, node_os_1.homedir)(), ".config", "copr"), (0, dedent_1.default) `
+                    [copr-cli]
+                    copr_url = https://copr.fedorainfracloud.org
+                    gssapi = true
+                    `);
+            });
+            // Create the temporary folder containing kerberos credentials and run kinit
+            (0, promises_1.mkdtemp)((0, node_path_1.join)((0, node_os_1.tmpdir)(), "packit-"))
+                .then((res) => {
+                const tmp_dir = (0, node_path_1.resolve)(res);
+                const kt_file = (0, node_path_1.join)(tmp_dir, "user.keytab");
+                const ccache_file = `FILE:${(0, node_path_1.join)(tmp_dir, `krb5cc_${fas_user}`)}`;
+                node_process_1.env["KRB5CCNAME"] = ccache_file;
+                (0, core_1.exportVariable)("KRB5CCNAME", ccache_file);
+                (0, promises_1.writeFile)(kt_file, keytab, { encoding: "base64" });
+                return kt_file;
+            })
+                .then((kt_file) => {
+                // Run `kinit` to authenticate and verify credentials
+                (0, exec_1.exec)("kinit", ["-kt", kt_file, `${fas_user}@FEDORAPROJECT.ORG`]);
+            });
         });
     }
     get version() {
@@ -9636,13 +9696,14 @@ class Prepare_os {
                 // Install python packages build requirements
                 if (with_python_action)
                     dependencies.push("gcc", "libcurl-devel", "openssl-devel", "krb5-devel");
-                dependencies.push("rpm-build");
+                dependencies.push("rpm-build", "krb5-workstation");
                 break;
             case this.os.distros.UBUNTU:
             case this.os.distros.DEBIAN:
                 // Install python packages build requirements
                 if (with_python_action)
                     dependencies.push("gcc", "python3-rpm", "libcurl4-gnutls-dev", "libgnutls28-dev", "libkrb5-dev");
+                dependencies.push("krb5-user", "krb5-k5tls", "ca-certificates");
                 break;
             default:
                 (0, core_1.info)(`Unsupported platform "${this.os.name()}". Dependency installation may fail`);
@@ -9751,6 +9812,30 @@ module.exports = require("net");
 
 "use strict";
 module.exports = require("node:assert");
+
+/***/ }),
+
+/***/ 3977:
+/***/ ((module) => {
+
+"use strict";
+module.exports = require("node:fs/promises");
+
+/***/ }),
+
+/***/ 612:
+/***/ ((module) => {
+
+"use strict";
+module.exports = require("node:os");
+
+/***/ }),
+
+/***/ 9411:
+/***/ ((module) => {
+
+"use strict";
+module.exports = require("node:path");
 
 /***/ }),
 
