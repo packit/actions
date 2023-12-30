@@ -1,0 +1,52 @@
+on:
+  workflow_call:
+    inputs:
+      fas-user:
+        description: Fedora user to authenticate as
+        type: string
+        required: true
+    secrets:
+      PACKIT_KEYTAB:
+        description: Fedora user's keytab
+        required: true
+
+permissions: {}
+
+jobs:
+  test-default:
+    name: >
+      test-default
+      🐍 ${{ matrix.python || 'built-in' }}
+      ${{ matrix.container && format('({0})', matrix.container) }}
+      ${{ matrix.experimental && '[experimental]' }}
+    runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.experimental || false }}
+    container: ${{ matrix.container }}
+    strategy:
+      fail-fast: false
+      matrix:
+        container: ["", "fedora:latest"]
+        python: ["", "3.x"]
+        include:
+          - python: "3.x"
+            experimental: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+        if: matrix.python
+      - uses: ./setup-packit
+        with:
+          fas-user: ${{ inputs.fas-user }}
+          keytab: ${{ secrets.PACKIT_KEYTAB }}
+      - name: Get example project
+        uses: actions/checkout@v4
+        with:
+          repository: packit/hello-world
+          path: hello-world
+      - uses: ./build-copr
+        with:
+          path: hello-world
+          owner: lecris
+          project: hello_world
