@@ -78,13 +78,13 @@ class Prepare_os {
 		return this._clean_env
 	}
 
-	public async install(dependencies?: string[]): Promise<void> {
+	public async install(dependencies?: string[]): Promise<number> {
 		if (dependencies == undefined) dependencies = this.dependencies
 		if (/apt/.test(this.os.getPM("update")))
 			await exec(`${this.os.sudo()}${this.os.getPM("update")}`, undefined, {
 				env: this.clean_env,
 			})
-		await exec(
+		return exec(
 			`${this.os.sudo()}${this.os.getPM("install")} ${dependencies.join(" ")}`,
 			undefined,
 			{ env: this.clean_env },

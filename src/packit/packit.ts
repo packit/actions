@@ -12,48 +12,50 @@ class Packit {
 
 	public async install(version?: string) {
 		// Do actual packit install
-		await exec(`python3 -m pip install packitos${version}`)
+		return exec(`python3 -m pip install packitos${version}`)
 	}
 
-	public async authenticate(fas_user: string, keytab: string) {
+	public async authenticate(
+		fas_user: string,
+		keytab: string,
+	): Promise<[[void, void], number]> {
 		// Write basic authentication files for packit
 		const config_dir = join(homedir(), ".config")
-		access(config_dir)
-			.catch(() => {
-				mkdir(config_dir, { recursive: true })
+		const write_configs = access(config_dir)
+			.catch(async () => {
+				return mkdir(config_dir, { recursive: true })
 			})
-			.then(() => {
-				writeFile(
-					join(homedir(), ".config", "packit.yaml"),
-					dedent`
+			.then(async () => {
+				const packit_content = dedent`
                     fas_user: ${fas_user}
-                    `,
-				)
-				writeFile(
-					join(homedir(), ".config", "copr"),
-					dedent`
+                    `
+				const copr_content = dedent`
                     [copr-cli]
                     copr_url = https://copr.fedorainfracloud.org
                     gssapi = true
-                    `,
-				)
+                    `
+				return Promise.all([
+					writeFile(join(homedir(), ".config", "packit.yaml"), packit_content),
+					writeFile(join(homedir(), ".config", "copr"), copr_content),
+				])
 			})
 
 		// Create the temporary folder containing kerberos credentials and run kinit
-		mkdtemp(join(tmpdir(), "packit-"))
-			.then((res) => {
+		const run_kinit = mkdtemp(join(tmpdir(), "packit-"))
+			.then(async (res) => {
 				const tmp_dir = resolve(res)
 				const kt_file = join(tmp_dir, "user.keytab")
 				const ccache_file = `FILE:${join(tmp_dir, `krb5cc_${fas_user}`)}`
 				env["KRB5CCNAME"] = ccache_file
 				exportVariable("KRB5CCNAME", ccache_file)
-				writeFile(kt_file, keytab, { encoding: "base64" })
+				await writeFile(kt_file, keytab, { encoding: "base64" })
 				return kt_file
 			})
-			.then((kt_file) => {
+			.then(async (kt_file) => {
 				// Run `kinit` to authenticate and verify credentials
-				exec("kinit", ["-kt", kt_file, `${fas_user}@FEDORAPROJECT.ORG`])
+				return exec("kinit", ["-kt", kt_file, `${fas_user}@FEDORAPROJECT.ORG`])
 			})
+		return Promise.all([write_configs, run_kinit])
 	}
 
 	public get version(): Promise<string> {

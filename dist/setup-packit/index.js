@@ -9532,36 +9532,46 @@ function run() {
     return __awaiter(this, void 0, void 0, function* () {
         const prepare_os = new prepare_os_1.Prepare_os();
         const packit = new packit_1.Packit();
+        // Prepare OS dependencies
         (0, core_1.startGroup)("Install system dependencies");
-        yield prepare_os.install();
-        (0, core_1.endGroup)();
-        (0, core_1.startGroup)("Setup packit");
-        const packit_version = (0, core_1.getInput)("packit-version");
-        yield packit.install(packit_version);
-        (0, core_1.endGroup)();
-        // Configure authentication
-        (0, core_1.startGroup)("Authenticating packit");
-        const fas_user = (0, core_1.getInput)("fas-user");
-        let keytab = (0, core_1.getInput)("keytab");
-        if (!keytab) {
-            if (!("PACKIT_KEYTAB" in node_process_1.env))
-                (0, core_1.error)((0, dedent_1.default) `
-                No keytab provided. Provide one either as an input or PAKIT_KEYTAB environment.
-                See this comment for creating the keytab: https://pagure.io/fedora-infrastructure/issue/9544#comment-706949
-                Use \`base64\` to encode the keytab and save it as a secret.
+        return prepare_os
+            .install()
+            .then(() => __awaiter(this, void 0, void 0, function* () {
+            // install packit
+            (0, core_1.endGroup)();
+            (0, core_1.startGroup)("Setup packit");
+            const packit_version = (0, core_1.getInput)("packit-version");
+            return packit.install(packit_version);
+        }))
+            .then(() => __awaiter(this, void 0, void 0, function* () {
+            // Configure authentication
+            (0, core_1.endGroup)();
+            (0, core_1.startGroup)("Authenticating packit");
+            const fas_user = (0, core_1.getInput)("fas-user");
+            let keytab = (0, core_1.getInput)("keytab");
+            if (!keytab) {
+                if (!("PACKIT_KEYTAB" in node_process_1.env))
+                    (0, core_1.error)((0, dedent_1.default) `
+                        No keytab provided. Provide one either as an input or PAKIT_KEYTAB environment.
+                        See this comment for creating the keytab: https://pagure.io/fedora-infrastructure/issue/9544#comment-706949
+                        Use \`base64\` to encode the keytab and save it as a secret.
+                        `);
+                (0, node_assert_1.default)(node_process_1.env.PACKIT_KEYTAB !== undefined);
+                keytab = node_process_1.env.PACKIT_KEYTAB;
+            }
+            yield packit.authenticate(fas_user, keytab);
+            return { fas_user: fas_user };
+        }))
+            .then((res) => __awaiter(this, void 0, void 0, function* () {
+            // Display information
+            (0, core_1.endGroup)();
+            (0, core_1.startGroup)("packit info");
+            (0, core_1.info)((0, dedent_1.default) `
+                fas-user: ${res.fas_user}
+                packit-version: ${yield packit.version}
                 `);
-            (0, node_assert_1.default)(node_process_1.env.PACKIT_KEYTAB !== undefined);
-            keytab = node_process_1.env.PACKIT_KEYTAB;
-        }
-        yield packit.authenticate(fas_user, keytab);
-        (0, core_1.endGroup)();
-        // Display information
-        (0, core_1.startGroup)("packit info");
-        (0, core_1.info)((0, dedent_1.default) `
-        fas-user: ${fas_user}
-		packit-version: ${yield packit.version}
-		`);
-        (0, core_1.endGroup)();
+            (0, core_1.endGroup)();
+        }));
     });
 }
 run().catch((err) => (0, core_1.setFailed)(`Action failed:\n${err}`));
@@ -9600,42 +9610,47 @@ class Packit {
     install(version) {
         return __awaiter(this, void 0, void 0, function* () {
             // Do actual packit install
-            yield (0, exec_1.exec)(`python3 -m pip install packitos${version}`);
+            return (0, exec_1.exec)(`python3 -m pip install packitos${version}`);
         });
     }
     authenticate(fas_user, keytab) {
         return __awaiter(this, void 0, void 0, function* () {
             // Write basic authentication files for packit
             const config_dir = (0, node_path_1.join)((0, node_os_1.homedir)(), ".config");
-            (0, promises_1.access)(config_dir)
-                .catch(() => {
-                (0, promises_1.mkdir)(config_dir, { recursive: true });
-            })
-                .then(() => {
-                (0, promises_1.writeFile)((0, node_path_1.join)((0, node_os_1.homedir)(), ".config", "packit.yaml"), (0, dedent_1.default) `
+            const write_configs = (0, promises_1.access)(config_dir)
+                .catch(() => __awaiter(this, void 0, void 0, function* () {
+                return (0, promises_1.mkdir)(config_dir, { recursive: true });
+            }))
+                .then(() => __awaiter(this, void 0, void 0, function* () {
+                const packit_content = (0, dedent_1.default) `
                     fas_user: ${fas_user}
-                    `);
-                (0, promises_1.writeFile)((0, node_path_1.join)((0, node_os_1.homedir)(), ".config", "copr"), (0, dedent_1.default) `
+                    `;
+                const copr_content = (0, dedent_1.default) `
                     [copr-cli]
                     copr_url = https://copr.fedorainfracloud.org
                     gssapi = true
-                    `);
-            });
+                    `;
+                return Promise.all([
+                    (0, promises_1.writeFile)((0, node_path_1.join)((0, node_os_1.homedir)(), ".config", "packit.yaml"), packit_content),
+                    (0, promises_1.writeFile)((0, node_path_1.join)((0, node_os_1.homedir)(), ".config", "copr"), copr_content),
+                ]);
+            }));
             // Create the temporary folder containing kerberos credentials and run kinit
-            (0, promises_1.mkdtemp)((0, node_path_1.join)((0, node_os_1.tmpdir)(), "packit-"))
-                .then((res) => {
+            const run_kinit = (0, promises_1.mkdtemp)((0, node_path_1.join)((0, node_os_1.tmpdir)(), "packit-"))
+                .then((res) => __awaiter(this, void 0, void 0, function* () {
                 const tmp_dir = (0, node_path_1.resolve)(res);
                 const kt_file = (0, node_path_1.join)(tmp_dir, "user.keytab");
                 const ccache_file = `FILE:${(0, node_path_1.join)(tmp_dir, `krb5cc_${fas_user}`)}`;
                 node_process_1.env["KRB5CCNAME"] = ccache_file;
                 (0, core_1.exportVariable)("KRB5CCNAME", ccache_file);
-                (0, promises_1.writeFile)(kt_file, keytab, { encoding: "base64" });
+                yield (0, promises_1.writeFile)(kt_file, keytab, { encoding: "base64" });
                 return kt_file;
-            })
-                .then((kt_file) => {
+            }))
+                .then((kt_file) => __awaiter(this, void 0, void 0, function* () {
                 // Run `kinit` to authenticate and verify credentials
-                (0, exec_1.exec)("kinit", ["-kt", kt_file, `${fas_user}@FEDORAPROJECT.ORG`]);
-            });
+                return (0, exec_1.exec)("kinit", ["-kt", kt_file, `${fas_user}@FEDORAPROJECT.ORG`]);
+            }));
+            return Promise.all([write_configs, run_kinit]);
         });
     }
     get version() {
@@ -9734,7 +9749,7 @@ class Prepare_os {
                 yield (0, exec_1.exec)(`${this.os.sudo()}${this.os.getPM("update")}`, undefined, {
                     env: this.clean_env,
                 });
-            yield (0, exec_1.exec)(`${this.os.sudo()}${this.os.getPM("install")} ${dependencies.join(" ")}`, undefined, { env: this.clean_env });
+            return (0, exec_1.exec)(`${this.os.sudo()}${this.os.getPM("install")} ${dependencies.join(" ")}`, undefined, { env: this.clean_env });
         });
     }
 }
