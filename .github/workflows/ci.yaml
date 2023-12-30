@@ -1,0 +1,40 @@
+name: CI
+run-name: >
+  CI (${{ github.event_name }})
+  ${{ github.event_name == 'pull_request' && format('PR#{0}', github.event.number) || '' }}
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  pre-commit:
+    uses: ./.github/workflows/step_pre-commit.yaml
+
+  setup-packit:
+    needs: [pre-commit]
+    uses: ./.github/workflows/step_test-setup-packit.yaml
+    with:
+      fas-user: ${{ vars.FAS_USER }}
+    secrets:
+      PACKIT_KEYTAB: ${{ secrets.PACKIT_KEYTAB }}
+
+  pass:
+    name: ✅ Pass
+    needs: [pre-commit, setup-packit]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check all CI jobs
+        uses: re-actors/alls-green@release/v1
+        with:
+          jobs: ${{ toJSON(needs) }}
+    if: always()
