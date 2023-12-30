@@ -48,3 +48,5 @@ jobs:
       - uses: ./build-copr
         with:
           path: hello-world
+          owner: lecris
+          project: hello_world
