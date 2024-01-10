@@ -1,4 +1,4 @@
-import { exec, getExecOutput } from "@actions/exec"
+import { exec, ExecOptions, getExecOutput } from "@actions/exec"
 import { join, resolve } from "node:path"
 import { access, mkdir, mkdtemp, writeFile } from "node:fs/promises"
 import { homedir, tmpdir } from "node:os"
@@ -7,6 +7,11 @@ import { env } from "node:process"
 import { exportVariable } from "@actions/core"
 import dedent from "dedent"
 
+interface ProposeDownstreamInterface {
+	pkg?: string
+	path?: string
+	debug?: boolean
+}
 class Packit {
 	_version?: string
 
@@ -67,6 +72,21 @@ class Packit {
 			assert(this._version !== undefined)
 			return this._version
 		})()
+	}
+
+	public async propose_downstream(opts: ProposeDownstreamInterface) {
+		let args = []
+		let base_args = []
+		let options: ExecOptions = {}
+		if (opts.pkg) args.push("--package", opts.pkg)
+		if (opts.path) options.cwd = opts.path
+		if (opts.debug) base_args.push("-dd")
+
+		return exec(
+			"packit",
+			[...base_args, "propose-downstream", ...args],
+			options,
+		)
 	}
 }
 

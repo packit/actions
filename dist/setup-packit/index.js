@@ -9663,6 +9663,20 @@ class Packit {
             return this._version;
         }))();
     }
+    propose_downstream(opts) {
+        return __awaiter(this, void 0, void 0, function* () {
+            let args = [];
+            let base_args = [];
+            let options = {};
+            if (opts.pkg)
+                args.push("--package", opts.pkg);
+            if (opts.path)
+                options.cwd = opts.path;
+            if (opts.debug)
+                base_args.push("-dd");
+            return (0, exec_1.exec)("packit", [...base_args, "propose-downstream", ...args], options);
+        });
+    }
 }
 exports.Packit = Packit;
 
