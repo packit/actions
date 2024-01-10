@@ -1,0 +1,16 @@
+name: Setup packit
+description: Action that setups packit cli and environment
+inputs:
+  packit-version:
+    description: >
+      packit version to download via pip. Default is the latest version on PyPI
+    required: false
+  keytab:
+    description: Base64 encoded user keytab
+    required: false
+  fas-user:
+    description: Fedora user linked to the keytab
+    required: true
+runs:
+  using: node20
+  main: ../dist/setup-packit/index.js
