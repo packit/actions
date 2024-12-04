@@ -1,0 +1,6 @@
+name: Packit Actions
+description: GitHub Actions provided by Packit
+author: Red Hat
+runs:
+  using: node16
+  main: dist/main/index.js
