@@ -1,0 +1,12 @@
+name: Propose downstream
+description: Action that opens a downstream pull-request through Packit
+inputs:
+  path:
+    description: Working directory where .packit.yaml is
+    required: false
+  package:
+    description: Packit package to build
+    required: false
+runs:
+  using: node20
+  main: ../dist/propose-downstream/index.js

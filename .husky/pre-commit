@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+. "$(dirname -- "$0")/_/husky.sh"
+
+npm run build
+npm run format
+npx lint-staged
+npm run package
+if [[ ! -z $(git status --porcelain dist | grep -E "^.\S") ]]; then
+  echo -e "\ndist changes have not been staged\n" >&2
+  git status dist
+  exit 1
+fi
